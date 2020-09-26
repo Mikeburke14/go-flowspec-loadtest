@@ -1,0 +1,15 @@
+{
+  "loglevel": "INFO",
+  "localasn": 65066,
+  "localipV4": "162.244.52.52",
+  "sessions": [
+    {
+      "neighbour": "5.200.14.26",
+      "asn": 65011
+    },
+    {
+      "neighbour": "116.197.187.154",
+      "asn": 65011
+    }
+  ]
+}
