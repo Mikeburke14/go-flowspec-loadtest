@@ -75,9 +75,12 @@ func main(){
 
 
 	wg.Add(1)
+	log.Info("Generating IP List")
 	generateIPList()
+	log.Info("Starting BGP Services")
 	go StartBgp()
-
+	time.Sleep(5 * time.Second)
+	log.Info("Starting FLow Churn")
 	go StartFlowChurn(1000,130)
 	wg.Wait()
 
@@ -393,13 +396,17 @@ func StartFlowChurn(batchSize int, batchCount int){
 		log.Panic("batchCount * batchSize > 131000 - Please lower either batchCount or BatchSize")
 	}
 	for true {
+		log.Info("Adding")
 		for i := 0; i < batchCount; i++ {
 			addBatch(i * batchSize, batchSize)
 		}
+		log.Info("Queue Remove")
 		for i := 0; i < batchCount; i++ {
 			go removeBatch(i * batchSize, batchSize)
 		}
+		log.Info("Sleeping 30 sec")
 		time.Sleep(30 *  time.Second)
+
 	}
 
 }
