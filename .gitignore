@@ -21,7 +21,7 @@ cache/*.json
 /goglad/src/google.golang.org/*
 /goglad/pkg/*
 /src/github.com/*
-/bin/
+
 !/bin/dep
 !/bin/golint
 
