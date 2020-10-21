@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/any"
@@ -47,9 +48,30 @@ var (
 
 var wg sync.WaitGroup
 
+
+
+var flagBatchSize = flag.Int("batchSize", 1000, "Amount of flowspec rules to add per batch")
+var flagBatchCount = flag.Int("batchCount", 130, "Amount of rule batches")
+var flagRemoveDelay = flag.Int("removeDelay", 20, "How long before the flowspec rules are removed after adding in seconds")
+var flagBatchDelay = flag.Int("batchDelay", 30, "How long between adding batches in seconds")
+
 func main(){
 	LoadConfig("configs/config.json", &Config, ConfigMux)
 
+	flag.Usage = func() {
+		fmt.Print(
+	`Program flow:
+		-> Generates IP list to use
+		-> Start BGP and connect to peer
+		-> Start flow churn, batch size 1000, batch count 130
+		-> Loop for each batch (in this case 130 batches)
+			-> Add flowspec rules (in this case a batch size of 1000, will add 1000 of them)
+			-> Queue batch removal, delay 20 seconds 
+			-> sleep 30`)
+		fmt.Print("\n Arguments:\n ")
+		flag.PrintDefaults()
+	}
+	flag.Parse()
 	log.SetFormatter(&log.TextFormatter{
 		TimestampFormat:  "",
 		DisableTimestamp: false,
@@ -81,7 +103,7 @@ func main(){
 	go StartBgp()
 	time.Sleep(5 * time.Second)
 	log.Info("Starting FLow Churn")
-	go StartFlowChurn(1000,130)
+	go StartFlowChurn(*flagBatchSize,*flagBatchCount)
 	wg.Wait()
 
 
@@ -396,16 +418,18 @@ func StartFlowChurn(batchSize int, batchCount int){
 		log.Panic("batchCount * batchSize > 131000 - Please lower either batchCount or BatchSize")
 	}
 	for true {
-		log.Info("Adding")
+
 		for i := 0; i < batchCount; i++ {
 			addBatch(i * batchSize, batchSize)
 		}
-		log.Info("Queue Remove")
+
 		for i := 0; i < batchCount; i++ {
 			go removeBatch(i * batchSize, batchSize)
 		}
-		log.Info("Sleeping 30 sec")
-		time.Sleep(30 *  time.Second)
+		log.WithFields(log.Fields{
+			"Seconds":*flagBatchDelay,
+		}).Info("Sleeping Between Batch")
+		time.Sleep(time.Duration(*flagBatchDelay) *  time.Second)
 
 	}
 
@@ -427,7 +451,7 @@ func addBatch(start int, count int){
 
 }
 func removeBatch(start int, count int){
-	time.Sleep(20 *  time.Second)
+	time.Sleep(time.Duration(*flagRemoveDelay) *  time.Second)
 	for i, flow := range flows{
 		if i >= start {
 			removeFlow(flow)
@@ -436,6 +460,7 @@ func removeBatch(start int, count int){
 			log.WithFields(log.Fields{
 				"start":start,
 				"count":count,
+				"Delayed Seconds": *flagRemoveDelay,
 			}).Warn("Remove Batch Complete")
 			return
 		}
